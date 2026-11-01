@@ -466,8 +466,6 @@ function App() {
   const startGame = () => {
     const firstQuestion = createQuestionForGame();
 
-    setActiveDifficulty(firstQuestion.difficulty);
-
     setQuestions([firstQuestion]);
     setCurrentIndex(0);
     setSelectedDigits([]);
@@ -487,8 +485,6 @@ function App() {
    */
   const createNextQuestion = () => {
     const nextQuestion = createQuestionForGame();
-
-    setActiveDifficulty(nextQuestion.difficulty);
 
     setQuestions((previous) => [...previous, nextQuestion]);
     setCurrentIndex((previous) => previous + 1);
