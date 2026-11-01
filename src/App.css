@@ -1,0 +1,460 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap');
+
+:root {
+  font-family: 'Vazirmatn', Tahoma, sans-serif;
+  color: #572b16;
+  background: #fff9ed;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top right, #ffe6a6 0%, transparent 35%),
+    radial-gradient(circle at bottom left, #ffd1b3 0%, transparent 35%),
+    #fff9ed;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 24px 16px;
+  direction: rtl;
+}
+
+.container {
+  width: 100%;
+  max-width: 520px;
+  padding: 32px 26px;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid #ffe0a3;
+  box-shadow: 0 15px 50px rgba(153, 82, 20, 0.12);
+  text-align: center;
+  animation: appear 0.35s ease;
+}
+
+@keyframes appear {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* لوگو */
+
+.brand-icon {
+  width: 76px;
+  height: 76px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 auto 16px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, #ffdf62, #ff9f1c);
+  box-shadow: 0 8px 20px rgba(255, 159, 28, 0.25);
+  font-size: 38px;
+}
+
+h1 {
+  margin: 0 0 12px;
+  color: #7c2d12;
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.subtitle {
+  margin: 0 0 28px;
+  color: #9a6546;
+  font-size: 14px;
+  line-height: 1.9;
+}
+
+/* تنظیمات */
+
+.setting {
+  margin: 24px 0;
+  padding: 20px;
+  border-radius: 20px;
+  background: #fff7df;
+  border: 1px solid #ffe5a3;
+}
+
+.setting h3 {
+  margin: 0 0 16px;
+  color: #78350f;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.options {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.option {
+  min-width: 58px;
+  padding: 10px 16px;
+  border: 2px solid #ffd88a;
+  border-radius: 12px;
+  background: #fffdf5;
+  color: #92400e;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.option:hover {
+  background: #ffedb5;
+  border-color: #ffb52e;
+}
+
+.option.active {
+  background: linear-gradient(135deg, #ffcf42, #ff9818);
+  border-color: #f28a08;
+  color: #572b08;
+  box-shadow: 0 4px 10px rgba(245, 158, 11, 0.2);
+}
+
+.level-info {
+  margin: 16px 0 0;
+  color: #a16207;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* دکمه اصلی */
+
+.primary-button {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 18px;
+  padding: 14px 20px;
+  border: none;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #ffb51f, #ff7518);
+  color: #ffffff;
+  font-size: 17px;
+  font-weight: 800;
+  box-shadow: 0 7px 18px rgba(234, 88, 12, 0.22);
+}
+
+.primary-button:hover {
+  background: linear-gradient(135deg, #ffa900, #ea580c);
+  box-shadow: 0 9px 22px rgba(234, 88, 12, 0.3);
+  transform: translateY(-2px);
+}
+
+.text-button {
+  margin-top: 16px;
+  padding: 10px 18px;
+  border: none;
+  background: transparent;
+  color: #c2410c;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.text-button:hover {
+  color: #9a3412;
+  text-decoration: underline;
+}
+
+.footer {
+  margin-top: 24px;
+  color: #c49a75;
+  font-size: 12px;
+}
+
+/* سربرگ بازی */
+
+.game-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  color: #92400e;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.timer {
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: #fff0bd;
+  color: #92400e;
+  font-weight: 800;
+  direction: rtl;
+}
+
+.timer.danger {
+  background: #fee2e2;
+  color: #b91c1c;
+  animation: pulse 0.8s infinite alternate;
+}
+
+@keyframes pulse {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0.65;
+  }
+}
+
+/* نوار پیشرفت */
+
+.progress-bar {
+  height: 10px;
+  margin: 18px 0 28px;
+  overflow: hidden;
+  border-radius: 20px;
+  background: #ffedd5;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 20px;
+  background: linear-gradient(90deg, #facc15, #f97316, #dc2626);
+  transition: width 0.3s ease;
+}
+
+/* متن سؤال */
+
+.question {
+  margin: 0 0 12px;
+  color: #7c2d12;
+  font-size: 21px;
+  font-weight: 800;
+  line-height: 1.9;
+}
+
+.instruction {
+  margin: 10px 0 20px;
+  color: #a16207;
+  font-size: 13px;
+  line-height: 1.9;
+}
+
+/* کارت‌های ارقام */
+
+.number-cards {
+  display: flex;
+  flex-direction: row;
+  direction: rtl;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 28px 0;
+}
+
+.digit-card {
+  width: 58px;
+  height: 70px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: 2px solid #fbbf24;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #fff9c9, #ffe49a);
+  color: #7c2d12;
+  font-size: 30px;
+  font-weight: 800;
+  box-shadow: 0 5px 0 #e9a51c, 0 8px 14px rgba(180, 83, 9, 0.1);
+  user-select: none;
+  cursor: grab;
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.digit-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 0 #e9a51c, 0 12px 18px rgba(180, 83, 9, 0.15);
+}
+
+.digit-card:active {
+  cursor: grabbing;
+}
+
+/* کارت انتخاب‌شده */
+
+.digit-card.selected {
+  background: linear-gradient(145deg, #ff7777, #dc2626);
+  border-color: #b91c1c;
+  color: #ffffff;
+  box-shadow: 0 5px 0 #991b1b, 0 8px 16px rgba(220, 38, 38, 0.2);
+  transform: translateY(-6px);
+}
+
+.digit-card.selected:hover {
+  box-shadow: 0 7px 0 #991b1b, 0 12px 18px rgba(220, 38, 38, 0.25);
+}
+
+/* کادر پاسخ */
+
+.answer-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 100px;
+  margin: 24px 0;
+  padding: 16px;
+  border: 2px dashed #fb923c;
+  border-radius: 20px;
+  background: #fff7ed;
+}
+
+.answer-box span {
+  color: #c2410c;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.answer-box strong {
+  min-height: 40px;
+  color: #9a3412;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  direction: ltr;
+}
+
+/* صفحه نتایج */
+
+.result-screen h1 {
+  color: #9a3412;
+}
+
+.score-circle {
+  width: 150px;
+  height: 150px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  margin: 24px auto;
+  border: 8px solid #ffbd35;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #fff7bd, #ffd66e);
+  box-shadow: 0 8px 24px rgba(245, 158, 11, 0.18);
+}
+
+.score-circle strong {
+  color: #9a3412;
+  font-size: 42px;
+  font-weight: 800;
+}
+
+.score-circle span {
+  color: #a16207;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.result-percent {
+  margin: 12px 0;
+  color: #ea580c;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.results-list {
+  max-height: 250px;
+  margin: 24px 0;
+  overflow-y: auto;
+  border: 1px solid #ffdf9e;
+  border-radius: 16px;
+  background: #fffaf0;
+}
+
+.result-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 18px;
+  border-bottom: 1px solid #ffedcc;
+  color: #78350f;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.result-item:last-child {
+  border-bottom: none;
+}
+
+/* نمایش در موبایل */
+
+@media (max-width: 480px) {
+  .app {
+    padding: 14px 10px;
+    align-items: flex-start;
+  }
+
+  .container {
+    padding: 24px 16px;
+    border-radius: 22px;
+  }
+
+  h1 {
+    font-size: 24px;
+  }
+
+  .question {
+    font-size: 18px;
+  }
+
+  .digit-card {
+    width: 48px;
+    height: 60px;
+    font-size: 25px;
+    border-radius: 12px;
+  }
+
+  .number-cards {
+    gap: 8px;
+  }
+
+  .setting {
+    padding: 16px 12px;
+  }
+
+  .option {
+    min-width: 48px;
+    padding: 9px 12px;
+  }
+}
