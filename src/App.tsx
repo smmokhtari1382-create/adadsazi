@@ -6,6 +6,7 @@ type Difficulty = 'آسان' | 'متوسط' | 'سخت';
 type DifficultyChoice = Difficulty | 'تصادفی';
 type Extremum = 'largest' | 'smallest' | 'none';
 type GameMode = 'عادی' | 'مسابقه‌ای';
+type Screen = 'register' | 'home' | 'game' | 'result' | 'history';
 
 type PlaceCondition = {
   position: number;
@@ -32,6 +33,7 @@ type Result = {
 type GameHistory = {
   id: string;
   date: string;
+  studentName?: string;
   difficulty: DifficultyChoice;
   totalQuestions: number;
   correct: number;
@@ -119,7 +121,6 @@ const calculateQuestionTime = (
     }
   }
 
-  // اعمال ضریب فقط در حالت عادی
   if (gameMode === 'عادی') {
     time *= TIME_MULTIPLIERS[difficulty];
   }
@@ -417,9 +418,15 @@ const saveHistory = (history: GameHistory[]) => {
 };
 
 function App() {
-  const [screen, setScreen] = useState<
-    'home' | 'game' | 'result' | 'history'
-  >('home');
+  // ثبت‌نام دانش‌آموز و بازیابی نام ذخیره‌شده
+  const savedName = localStorage.getItem('numberGameStudentName') || '';
+
+  const [studentName, setStudentName] = useState(savedName);
+  const [nameInput, setNameInput] = useState(savedName);
+
+  const [screen, setScreen] = useState<Screen>(
+    savedName.trim() ? 'home' : 'register'
+  );
 
   const [questionCount, setQuestionCount] = useState<number | null>(10);
 
@@ -439,17 +446,45 @@ function App() {
 
   // زمان ذخیره‌شده در حالت مسابقه‌ای
   const [bonusTime, setBonusTime] = useState(0);
-
-  // استفاده از ref برای جلوگیری از مشکلات به‌روزرسانی ناهم‌زمان state
   const bonusTimeRef = useRef(0);
 
+  // جلوگیری از ثبت چندباره پاسخ
   const submittedRef = useRef(false);
   const historySavedRef = useRef(false);
+
+  // مدیریت تایمر بازخورد پاسخ اشتباه
+  const wrongAnswerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+
+  const [wrongAnswerFeedback, setWrongAnswerFeedback] = useState<{
+    answer: string;
+    type: Extremum;
+    timeout: boolean;
+  } | null>(null);
 
   const currentQuestion = questions[currentIndex];
 
   const isInfinite = questionCount === null;
   const isCompetition = gameMode === 'مسابقه‌ای';
+
+  /**
+   * ثبت نام / ذخیره نام دانش‌آموز
+   */
+  const registerStudent = () => {
+    const trimmedName = nameInput.trim();
+
+    if (!trimmedName) return;
+
+    setStudentName(trimmedName);
+
+    localStorage.setItem(
+      'numberGameStudentName',
+      trimmedName
+    );
+
+    setScreen('home');
+  };
 
   /**
    * تعیین سطح سؤال بعدی
@@ -484,6 +519,7 @@ function App() {
     const newHistory: GameHistory = {
       id: `${Date.now()}`,
       date: new Date().toLocaleDateString('fa-IR'),
+      studentName,
       difficulty: difficultyChoice,
       totalQuestions: resultsToSave.length,
       correct,
@@ -512,13 +548,18 @@ function App() {
     setSelectedDigits([]);
     setResults([]);
 
-    // صفر کردن زمان ذخیره‌شده در ابتدای بازی
     bonusTimeRef.current = 0;
     setBonusTime(0);
 
     setTimeLeft(firstQuestion.time);
 
     setGameBurned(false);
+    setWrongAnswerFeedback(null);
+
+    if (wrongAnswerTimerRef.current) {
+      clearTimeout(wrongAnswerTimerRef.current);
+      wrongAnswerTimerRef.current = null;
+    }
 
     submittedRef.current = false;
     historySavedRef.current = false;
@@ -537,8 +578,6 @@ function App() {
 
     setSelectedDigits([]);
 
-    // حالت مسابقه‌ای: زمان پایه + زمان ذخیره‌شده
-    // حالت عادی: فقط زمان مستقل سؤال
     const nextTime =
       nextQuestion.time +
       (isCompetition ? bonusTimeRef.current : 0);
@@ -568,7 +607,11 @@ function App() {
   };
 
   /**
-   * ثبت پاسخ و تعیین ادامه یا پایان بازی
+   * ثبت پاسخ
+   *
+   * پاسخ صحیح: ادامه پس از مکث کوتاه
+   * پاسخ اشتباه: نمایش صفحه قرمز برای ۵ ثانیه
+   * حالت بی‌نهایت: پاسخ اشتباه موجب پایان بازی می‌شود
    */
   const submitAnswer = (timeout = false) => {
     if (submittedRef.current || !currentQuestion) return;
@@ -589,17 +632,10 @@ function App() {
 
     setResults(updatedResults);
 
-    /**
-     * مدیریت زمان در حالت مسابقه‌ای
-     *
-     * پاسخ صحیح:
-     * زمان باقی‌مانده همین سؤال ذخیره می‌شود.
-     *
-     * پاسخ اشتباه یا پایان زمان:
-     * زمان ذخیره‌شده صفر می‌شود.
-     */
+    // مدیریت زمان ذخیره‌شده در حالت مسابقه‌ای
     if (isCompetition) {
       if (correct) {
+        // فقط زمان باقی‌مانده ذخیره می‌شود؛ زمان‌ها روی هم انباشته نمی‌شوند
         bonusTimeRef.current = timeLeft;
         setBonusTime(timeLeft);
       } else {
@@ -608,39 +644,54 @@ function App() {
       }
     }
 
-    /**
-     * حالت بی‌نهایت:
-     * پاسخ غلط یا اتمام زمان = سوختن و پایان بازی
-     */
-    if (isInfinite && !correct) {
-      setGameBurned(true);
-
-      storeCurrentGame(updatedResults, true, true);
-
+    // پاسخ صحیح
+    if (correct) {
       setTimeout(() => {
+        if (isInfinite) {
+          createNextQuestion();
+          return;
+        }
+
+        const nextIndex = currentIndex + 1;
+
+        if (
+          questionCount !== null &&
+          nextIndex < questionCount
+        ) {
+          createNextQuestion();
+          return;
+        }
+
+        storeCurrentGame(updatedResults, false, false);
         setScreen('result');
       }, 700);
 
       return;
     }
 
-    /**
-     * پاسخ صحیح در حالت بی‌نهایت:
-     * ادامه بازی بدون محدودیت سؤال
-     */
-    if (isInfinite && correct) {
-      setTimeout(() => {
-        createNextQuestion();
-      }, 700);
+    // پاسخ غلط یا اتمام زمان: نمایش پاسخ صحیح
+    setWrongAnswerFeedback({
+      answer: currentQuestion.answer,
+      type: currentQuestion.type,
+      timeout,
+    });
 
-      return;
+    // حالت بی‌نهایت: بازی بعد از نمایش بازخورد تمام می‌شود
+    if (isInfinite) {
+      setGameBurned(true);
     }
 
-    /**
-     * حالت تعداد سؤال مشخص:
-     * رفتن به سؤال بعدی یا پایان بازی
-     */
-    setTimeout(() => {
+    // پس از ۵ ثانیه، ادامه بازی یا نمایش نتیجه
+    wrongAnswerTimerRef.current = setTimeout(() => {
+      setWrongAnswerFeedback(null);
+      wrongAnswerTimerRef.current = null;
+
+      if (isInfinite) {
+        storeCurrentGame(updatedResults, true, true);
+        setScreen('result');
+        return;
+      }
+
       const nextIndex = currentIndex + 1;
 
       if (
@@ -653,13 +704,20 @@ function App() {
 
       storeCurrentGame(updatedResults, false, false);
       setScreen('result');
-    }, 700);
+    }, 5000);
   };
 
   /**
    * خروج دستی از بازی
    */
   const exitGame = () => {
+    if (wrongAnswerTimerRef.current) {
+      clearTimeout(wrongAnswerTimerRef.current);
+      wrongAnswerTimerRef.current = null;
+    }
+
+    setWrongAnswerFeedback(null);
+
     if (isInfinite) {
       storeCurrentGame(results, true, false);
     }
@@ -683,10 +741,27 @@ function App() {
   };
 
   /**
+   * پاک‌سازی تایمر بازخورد هنگام خروج از کامپوننت
+   */
+  useEffect(() => {
+    return () => {
+      if (wrongAnswerTimerRef.current) {
+        clearTimeout(wrongAnswerTimerRef.current);
+      }
+    };
+  }, []);
+
+  /**
    * تایمر سؤال
    */
   useEffect(() => {
-    if (screen !== 'game' || submittedRef.current) return;
+    if (
+      screen !== 'game' ||
+      submittedRef.current ||
+      wrongAnswerFeedback !== null
+    ) {
+      return;
+    }
 
     if (timeLeft <= 0) {
       submitAnswer(true);
@@ -698,7 +773,76 @@ function App() {
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [timeLeft, screen]);
+  }, [timeLeft, screen, wrongAnswerFeedback]);
+
+  /**
+   * صفحه ثبت‌نام
+   */
+  if (screen === 'register') {
+    return (
+      <div className="container">
+        <div className="brand-icon">🔢</div>
+
+        <h1>ثبت‌نام دانش‌آموز</h1>
+
+        <p className="subtitle">
+          برای شروع بازی، نام و نام خانوادگی خودت را وارد کن.
+        </p>
+
+        <div className="setting">
+          <h3>نام و نام خانوادگی</h3>
+
+          <input
+            type="text"
+            value={nameInput}
+            onChange={(event) => setNameInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                registerStudent();
+              }
+            }}
+            placeholder="مثلاً سید مهدی مختاری فرد"
+            autoFocus
+            style={{
+              width: '100%',
+              boxSizing: 'border-box',
+              padding: '14px',
+              borderRadius: '12px',
+              border: '2px solid #d1d5db',
+              fontSize: '18px',
+              textAlign: 'center',
+              direction: 'rtl',
+              outline: 'none',
+              marginTop: '10px',
+              backgroundColor: '#ffffff',
+              color: '#1f2937',
+            }}
+          />
+        </div>
+
+        <button
+          className="primary-button"
+          onClick={registerStudent}
+          disabled={!nameInput.trim()}
+        >
+          ورود به بازی
+        </button>
+
+        {studentName.trim() && (
+          <button
+            className="text-button"
+            onClick={() => setScreen('home')}
+          >
+            بازگشت به صفحه اصلی
+          </button>
+        )}
+
+        <div className="footer">
+          نام شما برای دفعات بعد در همین دستگاه ذخیره می‌شود.
+        </div>
+      </div>
+    );
+  }
 
   /**
    * صفحه اصلی
@@ -711,8 +855,20 @@ function App() {
         <h1>بازی عددسازی</h1>
 
         <p className="subtitle">
-          با کارت‌های عددی، هوش ریاضی خودت را به چالش بکش!
+          سلام {studentName}!
+          <br />
+          با کارت‌های عددی، هوش ریاضی خودت را به چالش بکش.
         </p>
+
+        <button
+          className="text-button"
+          onClick={() => {
+            setNameInput(studentName);
+            setScreen('register');
+          }}
+        >
+          تغییر نام دانش‌آموز
+        </button>
 
         <div className="setting">
           <h3>حالت بازی</h3>
@@ -824,112 +980,192 @@ function App() {
     const isDanger = timeLeft <= 3;
 
     return (
-      <div className="container game-screen">
-        <div className="game-header">
-          <button className="text-button" onClick={exitGame}>
-            خروج از بازی
+      <>
+        <div className="container game-screen">
+          <div className="game-header">
+            <button className="text-button" onClick={exitGame}>
+              خروج از بازی
+            </button>
+
+            <div className={`timer ${isDanger ? 'danger' : ''}`}>
+              ⏱ {toPersianDigits(timeLeft)} ثانیه
+            </div>
+          </div>
+
+          {isCompetition && (
+            <div className="level-info">
+              زمان ذخیره‌شده: {toPersianDigits(bonusTime)} ثانیه
+            </div>
+          )}
+
+          {!isInfinite && questionCount !== null && (
+            <div className="progress-bar">
+              <div
+                className="progress-fill"
+                style={{
+                  width: `${
+                    ((currentIndex + 1) / questionCount) * 100
+                  }%`,
+                }}
+              />
+            </div>
+          )}
+
+          <div className="question-number">
+            {isInfinite
+              ? `سؤال ${toPersianDigits(currentIndex + 1)}`
+              : `سؤال ${toPersianDigits(currentIndex + 1)} از ${toPersianDigits(
+                  questionCount ?? 0
+                )}`}
+          </div>
+
+          {difficultyChoice === 'تصادفی' && (
+            <div className="level-info">
+              سطح این سؤال: {currentQuestion.difficulty}
+            </div>
+          )}
+
+          <h2 className="question">{currentQuestion.text}</h2>
+
+          <p className="instruction">
+            کارت‌ها را انتخاب کن و عدد موردنظر را بساز.
+            <br />
+            برای لغو انتخاب، دوباره روی کارت بزن.
+          </p>
+
+          <div className="number-cards">
+            {currentQuestion.digits.map((digit, index) => {
+              const isSelected = selectedDigits.includes(digit);
+
+              return (
+                <button
+                  key={`${digit}-${index}`}
+                  className={`digit-card ${
+                    isSelected ? 'selected' : ''
+                  }`}
+                  onClick={() => toggleDigit(digit)}
+                  disabled={
+                    !isSelected &&
+                    selectedDigits.length >= currentQuestion.digitCount
+                  }
+                >
+                  {toPersianDigits(digit)}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="answer-box">
+            <div className="answer-label">پاسخ شما</div>
+
+            <div className="answer-number">
+              {selectedNumber
+                ? toPersianDigits(selectedNumber)
+                : '؟'}
+            </div>
+
+            <div className="answer-hint">
+              {toPersianDigits(selectedDigits.length)} از{' '}
+              {toPersianDigits(currentQuestion.digitCount)} رقم انتخاب شده
+            </div>
+          </div>
+
+          <button
+            className="primary-button"
+            disabled={
+              selectedDigits.length !== currentQuestion.digitCount
+            }
+            onClick={() => submitAnswer(false)}
+          >
+            ثبت پاسخ
           </button>
 
-          <div className={`timer ${isDanger ? 'danger' : ''}`}>
-            ⏱ {toPersianDigits(timeLeft)} ثانیه
-          </div>
+          <button
+            className="text-button"
+            onClick={() => setSelectedDigits([])}
+          >
+            پاک کردن انتخاب‌ها
+          </button>
         </div>
 
-        {isCompetition && (
-          <div className="level-info">
-            زمان ذخیره‌شده: {toPersianDigits(bonusTime)} ثانیه
-          </div>
-        )}
+        {/* پوشش قرمز تمام صفحه هنگام پاسخ اشتباه یا پایان زمان */}
+        {wrongAnswerFeedback && (
+          <div
+            role="alert"
+            aria-live="assertive"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 9999,
+              backgroundColor: '#dc2626',
+              color: '#ffffff',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              alignItems: 'center',
+              textAlign: 'center',
+              padding: '24px',
+              boxSizing: 'border-box',
+              direction: 'rtl',
+            }}
+          >
+            <div style={{ fontSize: '64px', marginBottom: '16px' }}>
+              {wrongAnswerFeedback.timeout ? '⏱️' : '❌'}
+            </div>
 
-        {!isInfinite && questionCount !== null && (
-          <div className="progress-bar">
+            <h1 style={{ fontSize: '32px', marginBottom: '20px' }}>
+              {wrongAnswerFeedback.timeout
+                ? 'زمان به پایان رسید!'
+                : 'پاسخ اشتباه است!'}
+            </h1>
+
             <div
-              className="progress-fill"
               style={{
-                width: `${
-                  ((currentIndex + 1) / questionCount) * 100
-                }%`,
+                fontSize: '22px',
+                marginBottom: '12px',
+                fontWeight: 'bold',
               }}
-            />
+            >
+              {wrongAnswerFeedback.type === 'none'
+                ? 'یک پاسخ صحیح نمونه:'
+                : 'پاسخ صحیح:'}
+            </div>
+
+            <div
+              style={{
+                fontSize: '48px',
+                fontWeight: 'bold',
+                backgroundColor: '#ffffff',
+                color: '#dc2626',
+                borderRadius: '16px',
+                padding: '16px 32px',
+                marginBottom: '24px',
+                direction: 'ltr',
+              }}
+            >
+              {toPersianDigits(wrongAnswerFeedback.answer)}
+            </div>
+
+            <p style={{ fontSize: '18px' }}>
+              {isInfinite
+                ? 'بازی بی‌نهایت به پایان رسید.'
+                : '۵ ثانیه فرصت داری پاسخ صحیح را یاد بگیری!'}
+            </p>
+
+            <div
+              style={{
+                fontSize: '14px',
+                marginTop: '16px',
+                opacity: 0.9,
+              }}
+            >
+              {isInfinite
+                ? 'در حال نمایش نتیجه...'
+                : 'سؤال بعدی به‌زودی شروع می‌شود.'}
+            </div>
           </div>
         )}
-
-        <div className="question-number">
-          {isInfinite
-            ? `سؤال ${toPersianDigits(currentIndex + 1)}`
-            : `سؤال ${toPersianDigits(currentIndex + 1)} از ${toPersianDigits(
-                questionCount ?? 0
-              )}`}
-        </div>
-
-        {difficultyChoice === 'تصادفی' && (
-          <div className="level-info">
-            سطح این سؤال: {currentQuestion.difficulty}
-          </div>
-        )}
-
-        <h2 className="question">{currentQuestion.text}</h2>
-
-        <p className="instruction">
-          کارت‌ها را انتخاب کن و عدد موردنظر را بساز.
-          <br />
-          برای لغو انتخاب، دوباره روی کارت بزن.
-        </p>
-
-        <div className="number-cards">
-          {currentQuestion.digits.map((digit, index) => {
-            const isSelected = selectedDigits.includes(digit);
-
-            return (
-              <button
-                key={`${digit}-${index}`}
-                className={`digit-card ${
-                  isSelected ? 'selected' : ''
-                }`}
-                onClick={() => toggleDigit(digit)}
-                disabled={
-                  !isSelected &&
-                  selectedDigits.length >= currentQuestion.digitCount
-                }
-              >
-                {toPersianDigits(digit)}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="answer-box">
-          <div className="answer-label">پاسخ شما</div>
-
-          <div className="answer-number">
-            {selectedNumber
-              ? toPersianDigits(selectedNumber)
-              : '؟'}
-          </div>
-
-          <div className="answer-hint">
-            {toPersianDigits(selectedDigits.length)} از{' '}
-            {toPersianDigits(currentQuestion.digitCount)} رقم انتخاب شده
-          </div>
-        </div>
-
-        <button
-          className="primary-button"
-          disabled={
-            selectedDigits.length !== currentQuestion.digitCount
-          }
-          onClick={() => submitAnswer(false)}
-        >
-          ثبت پاسخ
-        </button>
-
-        <button
-          className="text-button"
-          onClick={() => setSelectedDigits([])}
-        >
-          پاک کردن انتخاب‌ها
-        </button>
-      </div>
+      </>
     );
   }
 
@@ -947,6 +1183,14 @@ function App() {
       total > 0
         ? Math.round((finalCorrect / total) * 100)
         : 0;
+
+    const modeLabel = gameMode === 'عادی' ? 'عادی' : 'مسابقه‌ای';
+
+    const difficultyLabel = difficultyChoice;
+
+    const questionCountLabel = isInfinite
+      ? `${toPersianDigits(total)} سؤال (حالت بی‌نهایت)`
+      : `${toPersianDigits(questionCount ?? total)} سؤال`;
 
     return (
       <div className="container result-screen">
@@ -971,6 +1215,37 @@ function App() {
             بازی بی‌نهایت تمام شد!
           </p>
         )}
+
+        {/* مشخصات دانش‌آموز و آزمون */}
+        <div
+          style={{
+            width: '100%',
+            boxSizing: 'border-box',
+            backgroundColor: '#f3f4f6',
+            borderRadius: '16px',
+            padding: '16px',
+            margin: '16px 0',
+            textAlign: 'right',
+            direction: 'rtl',
+            color: '#1f2937',
+          }}
+        >
+          <div style={{ marginBottom: '12px', fontSize: '18px' }}>
+            <strong>نام دانش‌آموز:</strong> {studentName}
+          </div>
+
+          <div style={{ marginBottom: '12px', fontSize: '16px' }}>
+            <strong>حالت آزمون:</strong> {modeLabel}
+          </div>
+
+          <div style={{ marginBottom: '12px', fontSize: '16px' }}>
+            <strong>سطح دشواری:</strong> {difficultyLabel}
+          </div>
+
+          <div style={{ fontSize: '16px' }}>
+            <strong>تعداد سؤال‌ها:</strong> {questionCountLabel}
+          </div>
+        </div>
 
         <div className="score-circle">
           <div className="result-percent">
@@ -1040,6 +1315,12 @@ function App() {
                     {item.gameMode ? ` ـ ${item.gameMode}` : ''}
                   </span>
                 </div>
+
+                {item.studentName && (
+                  <div className="history-details">
+                    دانش‌آموز: {item.studentName}
+                  </div>
+                )}
 
                 <div className="history-details">
                   {item.infinite
