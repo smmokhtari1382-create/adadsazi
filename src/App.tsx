@@ -5,6 +5,7 @@ import './App.css';
 type Difficulty = 'آسان' | 'متوسط' | 'سخت';
 type DifficultyChoice = Difficulty | 'تصادفی';
 type Extremum = 'largest' | 'smallest' | 'none';
+type GameMode = 'عادی' | 'مسابقه‌ای';
 
 type PlaceCondition = {
   position: number;
@@ -37,6 +38,7 @@ type GameHistory = {
   percentage: number;
   infinite: boolean;
   burned: boolean;
+  gameMode?: GameMode;
 };
 
 const SETTINGS: Record<Difficulty, { count: number }> = {
@@ -54,6 +56,12 @@ const PLACE_NAMES: Record<number, string> = {
   4: 'هزارگان',
   5: 'ده‌هزارگان',
   6: 'صد‌هزارگان',
+};
+
+const TIME_MULTIPLIERS: Record<Difficulty, number> = {
+  آسان: 5,
+  متوسط: 4,
+  سخت: 3,
 };
 
 const toPersianDigits = (value: string | number): string =>
@@ -78,15 +86,29 @@ const getRandomDifficulty = (): Difficulty => {
   return levels[randomInt(0, levels.length - 1)];
 };
 
+/**
+ * محاسبه زمان سؤال
+ *
+ * حالت عادی:
+ * آسان × ۵
+ * متوسط × ۴
+ * سخت × ۳
+ *
+ * حالت مسابقه‌ای:
+ * زمان پایه بدون ضریب
+ */
 const calculateQuestionTime = (
   digitCount: number,
   extremum: Extremum,
   hasPlaceCondition: boolean,
-  divisor: number | null
+  divisor: number | null,
+  difficulty: Difficulty,
+  gameMode: GameMode
 ): number => {
   let time = 1 + digitCount;
 
   if (extremum !== 'none') time += 2;
+
   if (hasPlaceCondition) time += 2;
 
   if (divisor !== null) {
@@ -95,6 +117,11 @@ const calculateQuestionTime = (
     } else {
       time += 5;
     }
+  }
+
+  // اعمال ضریب فقط در حالت عادی
+  if (gameMode === 'عادی') {
+    time *= TIME_MULTIPLIERS[difficulty];
   }
 
   return time;
@@ -205,7 +232,10 @@ const getAllValidNumbers = (
 /**
  * تولید سؤال معتبر
  */
-const generateQuestion = (difficulty: Difficulty): Question => {
+const generateQuestion = (
+  difficulty: Difficulty,
+  gameMode: GameMode
+): Question => {
   const cardCount = SETTINGS[difficulty].count;
 
   for (let attempt = 0; attempt < 500; attempt++) {
@@ -265,7 +295,9 @@ const generateQuestion = (difficulty: Difficulty): Question => {
       digitCount,
       type,
       placeCondition !== null,
-      divisor
+      divisor,
+      difficulty,
+      gameMode
     );
 
     return {
@@ -295,7 +327,10 @@ const generateQuestion = (difficulty: Difficulty): Question => {
     digitCount: 3,
     placeCondition: null,
     divisor: null,
-    time: 6,
+    time:
+      gameMode === 'عادی'
+        ? 6 * TIME_MULTIPLIERS[difficulty]
+        : 6,
     difficulty,
   };
 };
@@ -391,7 +426,7 @@ function App() {
   const [difficultyChoice, setDifficultyChoice] =
     useState<DifficultyChoice>('متوسط');
 
-
+  const [gameMode, setGameMode] = useState<GameMode>('عادی');
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -402,17 +437,22 @@ function App() {
 
   const [gameBurned, setGameBurned] = useState(false);
 
+  // زمان ذخیره‌شده در حالت مسابقه‌ای
+  const [bonusTime, setBonusTime] = useState(0);
+
+  // استفاده از ref برای جلوگیری از مشکلات به‌روزرسانی ناهم‌زمان state
+  const bonusTimeRef = useRef(0);
+
   const submittedRef = useRef(false);
   const historySavedRef = useRef(false);
 
   const currentQuestion = questions[currentIndex];
 
   const isInfinite = questionCount === null;
+  const isCompetition = gameMode === 'مسابقه‌ای';
 
-  
   /**
    * تعیین سطح سؤال بعدی
-   * اگر حالت تصادفی باشد، هر سؤال سطح مستقلی خواهد داشت.
    */
   const createQuestionForGame = (): Question => {
     const level =
@@ -420,7 +460,7 @@ function App() {
         ? getRandomDifficulty()
         : difficultyChoice;
 
-    return generateQuestion(level);
+    return generateQuestion(level, gameMode);
   };
 
   /**
@@ -452,6 +492,7 @@ function App() {
       ),
       infinite,
       burned,
+      gameMode,
     };
 
     const updated = [newHistory, ...history];
@@ -470,6 +511,11 @@ function App() {
     setCurrentIndex(0);
     setSelectedDigits([]);
     setResults([]);
+
+    // صفر کردن زمان ذخیره‌شده در ابتدای بازی
+    bonusTimeRef.current = 0;
+    setBonusTime(0);
+
     setTimeLeft(firstQuestion.time);
 
     setGameBurned(false);
@@ -490,7 +536,14 @@ function App() {
     setCurrentIndex((previous) => previous + 1);
 
     setSelectedDigits([]);
-    setTimeLeft(nextQuestion.time);
+
+    // حالت مسابقه‌ای: زمان پایه + زمان ذخیره‌شده
+    // حالت عادی: فقط زمان مستقل سؤال
+    const nextTime =
+      nextQuestion.time +
+      (isCompetition ? bonusTimeRef.current : 0);
+
+    setTimeLeft(nextTime);
 
     submittedRef.current = false;
   };
@@ -515,11 +568,6 @@ function App() {
   };
 
   /**
-   * تغییر ترتیب کارت‌های انتخاب‌شده
-   */
-  
-
-  /**
    * ثبت پاسخ و تعیین ادامه یا پایان بازی
    */
   const submitAnswer = (timeout = false) => {
@@ -540,6 +588,25 @@ function App() {
     updatedResults[currentIndex] = newResult;
 
     setResults(updatedResults);
+
+    /**
+     * مدیریت زمان در حالت مسابقه‌ای
+     *
+     * پاسخ صحیح:
+     * زمان باقی‌مانده همین سؤال ذخیره می‌شود.
+     *
+     * پاسخ اشتباه یا پایان زمان:
+     * زمان ذخیره‌شده صفر می‌شود.
+     */
+    if (isCompetition) {
+      if (correct) {
+        bonusTimeRef.current = timeLeft;
+        setBonusTime(timeLeft);
+      } else {
+        bonusTimeRef.current = 0;
+        setBonusTime(0);
+      }
+    }
 
     /**
      * حالت بی‌نهایت:
@@ -585,7 +652,6 @@ function App() {
       }
 
       storeCurrentGame(updatedResults, false, false);
-
       setScreen('result');
     }, 700);
   };
@@ -647,6 +713,24 @@ function App() {
         <p className="subtitle">
           با کارت‌های عددی، هوش ریاضی خودت را به چالش بکش!
         </p>
+
+        <div className="setting">
+          <h3>حالت بازی</h3>
+
+          <div className="options">
+            {(['عادی', 'مسابقه‌ای'] as GameMode[]).map((mode) => (
+              <button
+                key={mode}
+                className={`option ${
+                  gameMode === mode ? 'active' : ''
+                }`}
+                onClick={() => setGameMode(mode)}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+        </div>
 
         <div className="setting">
           <h3>تعداد سؤال</h3>
@@ -751,6 +835,12 @@ function App() {
           </div>
         </div>
 
+        {isCompetition && (
+          <div className="level-info">
+            زمان ذخیره‌شده: {toPersianDigits(bonusTime)} ثانیه
+          </div>
+        )}
+
         {!isInfinite && questionCount !== null && (
           <div className="progress-bar">
             <div
@@ -799,8 +889,7 @@ function App() {
                 onClick={() => toggleDigit(digit)}
                 disabled={
                   !isSelected &&
-                  selectedDigits.length >=
-                    currentQuestion.digitCount
+                  selectedDigits.length >= currentQuestion.digitCount
                 }
               >
                 {toPersianDigits(digit)}
@@ -827,8 +916,7 @@ function App() {
         <button
           className="primary-button"
           disabled={
-            selectedDigits.length !==
-            currentQuestion.digitCount
+            selectedDigits.length !== currentQuestion.digitCount
           }
           onClick={() => submitAnswer(false)}
         >
@@ -949,6 +1037,7 @@ function App() {
 
                   <span className="history-level">
                     {item.difficulty}
+                    {item.gameMode ? ` ـ ${item.gameMode}` : ''}
                   </span>
                 </div>
 
